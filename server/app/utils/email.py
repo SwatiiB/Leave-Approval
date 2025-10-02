@@ -39,28 +39,63 @@ EMAIL_PASS = os.getenv("EMAIL_PASS")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-env = Environment(loader=FileSystemLoader("app/utils/templates"))
+# Setup Jinja2 environment with proper template path
+template_dirs = [
+    str(utils_dir / "templates"),  # Current directory structure
+    str(app_dir / "utils" / "templates"),  # App directory structure
+    str(server_dir / "app" / "utils" / "templates"),  # Full path
+    "app/utils/templates",  # Fallback relative path
+    "server/app/utils/templates"  # Full relative path
+]
+
+# Try to find templates directory
+template_dir = None
+for dir_path in template_dirs:
+    if Path(dir_path).exists():
+        template_dir = dir_path
+        break
+
+if template_dir:
+    env = Environment(loader=FileSystemLoader(template_dir))
+    print(f"📧 Templates loaded from: {template_dir}")
+else:
+    # Fallback - create templates inline if directory not found
+    env = None
+    print("⚠️ Templates directory not found, using inline templates")
 
 def send_leave_action_email(leave_dict):
     try:
         # Check if email configuration is available
+        print(f"📧 DEBUG: Checking email configuration...")
+        print(f"EMAIL_HOST: {EMAIL_HOST}")
+        print(f"EMAIL_USER: {EMAIL_USER}")
+        print(f"EMAIL_PASS: {'***' if EMAIL_PASS else 'None'}")
+        
         if not all([EMAIL_HOST, EMAIL_USER, EMAIL_PASS]):
-            print("Email configuration not available, skipping email notification")
-            return
+            error_msg = f"Email configuration incomplete - HOST: {bool(EMAIL_HOST)}, USER: {bool(EMAIL_USER)}, PASS: {bool(EMAIL_PASS)}"
+            print(f"❌ {error_msg}")
+            return {"error": error_msg}
         
         # Validate URL configuration
         if not BACKEND_URL or not FRONTEND_URL:
-            print("URL configuration missing, using default localhost URLs")
+            print("⚠️ URL configuration missing, using default localhost URLs")
             backend_url = "http://localhost:8000"
             frontend_url = "http://localhost:5173"
         else:
             backend_url = BACKEND_URL
             frontend_url = FRONTEND_URL
         
-        print(f"Email will use URLs - Backend: {backend_url}, Frontend: {frontend_url}")
+        print(f"🌐 Email will use URLs - Backend: {backend_url}, Frontend: {frontend_url}")
         
         # For production, get fresh leave data to show current status in email
-        from app.models.db import leaves_collection
+        try:
+            from models.db import leaves_collection
+        except ImportError:
+            try:
+                from app.models.db import leaves_collection
+            except ImportError:
+                from server.app.models.db import leaves_collection
+        
         from bson import ObjectId
         
         # Get the latest leave data if _id exists
@@ -95,13 +130,25 @@ def send_leave_action_email(leave_dict):
         print(f"   Approval Token: {approval_token[:8]}...")
         print(f"   Rejection Token: {rejection_token[:8]}...")
         
-        # Render AMP email with embedded form
-        amp_template = env.get_template("leave_action.amp.html")
-        amp_content = amp_template.render(leave=leave_dict)
-        
-        # Render HTML fallback email for non-AMP clients (like Outlook)
-        html_template = env.get_template("leave_action_fallback.html")
-        html_content = html_template.render(leave=leave_dict)
+        # Render email content
+        if env:
+            try:
+                # Try to render AMP email with embedded form
+                amp_template = env.get_template("leave_action.amp.html")
+                amp_content = amp_template.render(leave=leave_dict)
+                
+                # Try to render HTML fallback email for non-AMP clients
+                html_template = env.get_template("leave_action_fallback.html")
+                html_content = html_template.render(leave=leave_dict)
+                print("✅ Email templates rendered successfully")
+            except Exception as template_error:
+                print(f"⚠️ Template rendering failed: {template_error}")
+                # Use fallback inline template
+                amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
+        else:
+            print("📧 Using fallback inline email templates")
+            # Use fallback inline template
+            amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
         
         msg = EmailMessage()
         msg["Subject"] = f"Leave Request {leave_dict.get('status', 'Approval').title()} - {leave_dict.get('employee_name', 'Employee')}"
@@ -221,3 +268,76 @@ This is an automated message. Please do not reply to this email.
     except Exception as e:
         print(f"❌ Failed to send password reset OTP: {str(e)}")
         raise e
+
+
+def get_fallback_email_content(leave_dict, backend_url):
+    """Generate fallback email content when templates are not available"""
+    
+    # Basic HTML email content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Leave Request Approval</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Leave Request Approval Required</h1>
+        </div>
+        <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #ddd;">
+            <h2 style="color: #333; margin-top: 0;">Leave Request Details</h2>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #f0f0f0;">
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Employee:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('employee_name', 'N/A')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Department:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('employee_department', 'N/A')}</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Leave Type:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('leave_type', 'N/A')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Start Date:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('start_date', 'N/A')}</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">End Date:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('end_date', 'N/A')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Days:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('days', 'N/A')}</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                    <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Reason:</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{leave_dict.get('reason', 'N/A')}</td>
+                </tr>
+            </table>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{backend_url}/api/leave/{leave_dict.get('_id')}/approve?token={leave_dict.get('approval_token')}" 
+                   style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 0 10px; display: inline-block; font-weight: bold;">
+                   ✅ APPROVE
+                </a>
+                <a href="{backend_url}/api/leave/{leave_dict.get('_id')}/reject?token={leave_dict.get('rejection_token')}" 
+                   style="background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 0 10px; display: inline-block; font-weight: bold;">
+                   ❌ REJECT
+                </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                This is an automated notification. Please click one of the buttons above to approve or reject this leave request.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # Simple AMP content (fallback to basic HTML)
+    amp_content = html_content
+    
+    return amp_content, html_content

@@ -148,6 +148,18 @@ def list_routes():
             })
     return {"routes": routes}
 
+# Test email endpoint
+@app.get("/debug/test-email")
+def test_email_config():
+    import os
+    return {
+        "email_host": os.getenv("EMAIL_HOST"),
+        "email_user": os.getenv("EMAIL_USER"),
+        "email_pass_configured": bool(os.getenv("EMAIL_PASS")),
+        "backend_url": os.getenv("BACKEND_URL"),
+        "frontend_url": os.getenv("FRONTEND_URL")
+    }
+
 # Static frontend serving (expects built files copied to ./static/client)
 STATIC_CLIENT_DIR = os.path.join(os.path.dirname(__file__), "static", "client")
 if os.path.isdir(STATIC_CLIENT_DIR):

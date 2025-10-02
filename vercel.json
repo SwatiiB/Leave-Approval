@@ -6,10 +6,10 @@
       "use": "@vercel/python"
     },
     {
-      "src": "client/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "client/dist"
       }
     }
   ],
@@ -19,15 +19,13 @@
       "dest": "server/app/main.py"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "client/dist/assets/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "client/dist/index.html"
     }
   ],
-  "installCommand": "pip install -r server/requirements.txt && cd client && npm install",
-  "buildCommand": "cd client && npm run build",
-  "outputDirectory": "client/dist"
+  "functions": {
+    "server/app/main.py": {
+      "runtime": "python3.9"
+    }
+  }
 }

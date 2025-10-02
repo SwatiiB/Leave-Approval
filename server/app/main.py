@@ -3,8 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.routes import leave, auth
+import sys
 import os
+
+# Add the server directory to Python path for Vercel deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+server_dir = os.path.dirname(current_dir)
+if server_dir not in sys.path:
+    sys.path.insert(0, server_dir)
+
+try:
+    from app.routes import leave, auth
+except ImportError:
+    # Fallback for Vercel deployment
+    from server.app.routes import leave, auth
+
 from dotenv import load_dotenv
 
 load_dotenv()

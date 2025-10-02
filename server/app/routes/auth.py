@@ -1,11 +1,26 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from app.models.db import users_collection, password_resets_collection
-from app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
-from app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
+import sys
+import os
+
+# Add the server directory to Python path for Vercel deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+server_dir = os.path.dirname(os.path.dirname(current_dir))
+if server_dir not in sys.path:
+    sys.path.insert(0, server_dir)
+
+try:
+    from app.models.db import users_collection, password_resets_collection
+    from app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+    from app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
+except ImportError:
+    # Fallback for Vercel deployment
+    from server.app.models.db import users_collection, password_resets_collection
+    from server.app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+    from server.app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
+
 from bson import ObjectId
 from datetime import timedelta
-import os
 from pymongo.errors import DuplicateKeyError
 from datetime import datetime, timezone, timedelta as td
 import random

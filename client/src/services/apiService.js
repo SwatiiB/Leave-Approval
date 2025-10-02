@@ -1,8 +1,9 @@
 // API service for Leave Approval System
 // Handles all HTTP requests to the FastAPI backend
 
-// Temporarily use local backend for forgot password functionality
-const API_BASE_URL = 'http://localhost:8000'; // import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Use environment variable for production, fallback to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
 
 class ApiService {
   constructor() {

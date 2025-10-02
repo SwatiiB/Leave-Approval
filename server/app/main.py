@@ -39,6 +39,7 @@ async def add_amp_cors_headers(request: Request, call_next):
 
 # Get URLs from environment for CORS configuration
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Enhanced CORS configuration for AMP emails
 # Based on working configuration that properly handles AMP email rendering
@@ -48,6 +49,9 @@ origins = [
     "http://localhost:5173",  # Vite default port
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    # Production URLs from environment
+    FRONTEND_URL,
+    BACKEND_URL,
     # Google/Gmail AMP email origins
     "https://mail.google.com",
     "https://gmail.com", 
@@ -56,8 +60,6 @@ origins = [
     "https://accounts.google.com",
     "https://mail.google.com",
     "https://googlemail.com",
-    # Production frontend URL from environment
-    FRONTEND_URL,
 ]
 
 # Remove duplicates and None values

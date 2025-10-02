@@ -4,6 +4,13 @@
     {
       "src": "server/app/main.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
@@ -12,9 +19,15 @@
       "dest": "server/app/main.py"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "client/dist/assets/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "client/$1"
+      "dest": "client/dist/index.html"
     }
   ],
-  "installCommand": "pip install -r server/requirements.txt && npm install --prefix client && npm install"
+  "installCommand": "pip install -r server/requirements.txt && cd client && npm install",
+  "buildCommand": "cd client && npm run build",
+  "outputDirectory": "client/dist"
 }

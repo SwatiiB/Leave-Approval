@@ -112,8 +112,41 @@ app.add_middleware(
     ],
 )
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(leave.router, prefix="/leave", tags=["leave"])
+# Create an API router to handle the /api prefix
+from fastapi import APIRouter
+api_router = APIRouter()
+
+# Include all sub-routers under the API router
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(leave.router, prefix="/leave", tags=["leave"])
+
+# Add the API router to the main app with /api prefix
+app.include_router(api_router, prefix="/api")
+
+# Also include routes without /api prefix for direct access
+app.include_router(auth.router, prefix="/auth", tags=["auth-direct"])
+app.include_router(leave.router, prefix="/leave", tags=["leave-direct"])
+
+# Add a test endpoint to verify API is working
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "message": "API is working"}
+
+@app.get("/api/health") 
+def api_health_check():
+    return {"status": "healthy", "message": "API endpoint is working"}
+
+# Debug endpoint to list all routes
+@app.get("/debug/routes")
+def list_routes():
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods)
+            })
+    return {"routes": routes}
 
 # Static frontend serving (expects built files copied to ./static/client)
 STATIC_CLIENT_DIR = os.path.join(os.path.dirname(__file__), "static", "client")

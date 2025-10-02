@@ -1,9 +1,8 @@
 // API service for Leave Approval System
 // Handles all HTTP requests to the FastAPI backend
 
-// Use environment variable for production, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
+// For backend-only deployment on Vercel, frontend runs locally
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://leave-approval.vercel.app';
 
 class ApiService {
   constructor() {

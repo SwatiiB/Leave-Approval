@@ -120,11 +120,22 @@ def send_leave_action_email(leave_dict):
         leave_dict['approval_token'] = approval_token
         leave_dict['rejection_token'] = rejection_token
         
+        # Ensure total_days field for template compatibility
+        if 'days' in leave_dict and 'total_days' not in leave_dict:
+            leave_dict['total_days'] = leave_dict['days']
+        elif 'total_days' not in leave_dict and 'days' not in leave_dict:
+            leave_dict['total_days'] = 'N/A'
+            leave_dict['days'] = 'N/A'
+        
         # Add URLs for template
         leave_dict['backend_url'] = backend_url
         leave_dict['frontend_url'] = frontend_url
         
-        print(f"🔧 DEBUG - Email Template URLs:")
+        print(f"🔧 DEBUG - Email Template Data:")
+        print(f"   Employee: {leave_dict.get('employee_name', 'N/A')}")
+        print(f"   Leave Type: {leave_dict.get('leave_type', 'N/A')}")
+        print(f"   Days: {leave_dict.get('days', 'N/A')} / Total Days: {leave_dict.get('total_days', 'N/A')}")
+        print(f"   Status: {leave_dict.get('status', 'N/A')}")
         print(f"   Backend URL: {backend_url}")
         print(f"   Frontend URL: {frontend_url}")
         print(f"   Approval Token: {approval_token[:8]}...")
@@ -134,19 +145,34 @@ def send_leave_action_email(leave_dict):
         if env:
             try:
                 # Try to render AMP email with embedded form
+                print("📧 Attempting to render AMP template...")
                 amp_template = env.get_template("leave_action.amp.html")
                 amp_content = amp_template.render(leave=leave_dict)
+                print(f"✅ AMP template rendered successfully ({len(amp_content)} characters)")
                 
                 # Try to render HTML fallback email for non-AMP clients
+                print("📧 Attempting to render HTML fallback template...")
                 html_template = env.get_template("leave_action_fallback.html")
                 html_content = html_template.render(leave=leave_dict)
-                print("✅ Email templates rendered successfully")
+                print(f"✅ HTML template rendered successfully ({len(html_content)} characters)")
+                
+                # Validate AMP content
+                if not amp_content or len(amp_content) < 100:
+                    print("⚠️ AMP content seems too short, using fallback")
+                    amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
+                elif "{{ leave." in amp_content:
+                    print("⚠️ AMP template has unrendered variables, using fallback")
+                    amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
+                else:
+                    print("✅ AMP template validation passed")
+                    
             except Exception as template_error:
-                print(f"⚠️ Template rendering failed: {template_error}")
+                print(f"❌ Template rendering failed: {template_error}")
+                print(f"Template error details: {type(template_error).__name__}: {str(template_error)}")
                 # Use fallback inline template
                 amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
         else:
-            print("📧 Using fallback inline email templates")
+            print("📧 Using fallback inline email templates (no template environment)")
             # Use fallback inline template
             amp_content, html_content = get_fallback_email_content(leave_dict, backend_url)
         
@@ -155,10 +181,45 @@ def send_leave_action_email(leave_dict):
         msg["From"] = EMAIL_USER
         msg["To"] = leave_dict["manager_email"]
         
-        # Set HTML as primary content for better compatibility
-        msg.set_content("Please enable HTML to view this email properly.")
+        # Add AMP-specific headers
+        msg["X-Amp-Source-Origin"] = FRONTEND_URL if FRONTEND_URL else "https://leave-approval.vercel.app"
+        msg["Content-Type"] = "multipart/alternative"
+        
+        # Set plain text as primary content
+        text_content = f"""
+Leave Request Approval Required
+
+Employee: {leave_dict.get('employee_name', 'N/A')}
+Department: {leave_dict.get('employee_department', 'N/A')}
+Leave Type: {leave_dict.get('leave_type', 'N/A')}
+Start Date: {leave_dict.get('start_date', 'N/A')}
+End Date: {leave_dict.get('end_date', 'N/A')}
+Days: {leave_dict.get('days', 'N/A')}
+Reason: {leave_dict.get('reason', 'N/A')}
+
+To approve or reject this leave request, please visit:
+{backend_url}/api/leave/{leave_dict.get('_id')}/approve?token={leave_dict.get('approval_token')}
+
+This is an automated notification from the Leave Management System.
+        """.strip()
+        
+        msg.set_content(text_content)
+        
+        # Add HTML fallback content
         msg.add_alternative(html_content, subtype="html")
-        msg.add_alternative(amp_content, subtype="x-amp-html")
+        
+        # Add AMP content with proper MIME type for Gmail
+        try:
+            # Create AMP part manually for better control
+            from email.mime.text import MIMEText
+            amp_mime = MIMEText(amp_content, "html")
+            amp_mime.set_type("text/x-amp-html")
+            msg.attach(amp_mime)
+            print("✅ AMP content attached with proper MIME type")
+        except Exception as amp_error:
+            print(f"⚠️ Failed to attach AMP content: {amp_error}")
+            # Fallback: add as alternative
+            msg.add_alternative(amp_content, subtype="html")
         
         with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
             server.starttls()

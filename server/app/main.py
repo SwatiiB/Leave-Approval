@@ -1,28 +1,39 @@
-from fastapi import FastAPI
+import os
+import sys
+from pathlib import Path
+
+# Add both server and server/app to Python path for Vercel
+current_file = Path(__file__).resolve()
+server_app_dir = current_file.parent
+server_dir = server_app_dir.parent
+root_dir = server_dir.parent
+
+# Add paths to sys.path
+for path in [str(root_dir), str(server_dir), str(server_app_dir)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import sys
-import os
-
-# Add the server directory to Python path for Vercel deployment
-current_dir = os.path.dirname(os.path.abspath(__file__))
-server_dir = os.path.dirname(current_dir)
-if server_dir not in sys.path:
-    sys.path.insert(0, server_dir)
-
-try:
-    from app.routes import leave, auth
-except ImportError:
-    # Fallback for Vercel deployment
-    from server.app.routes import leave, auth
-
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
+# Also try loading from server directory
+load_dotenv(server_dir / ".env")
 
 app = FastAPI(title="Leave Approval System API", version="1.0.0")
+
+# Import routes after path setup
+try:
+    from routes import auth, leave
+except ImportError:
+    try:
+        from app.routes import auth, leave
+    except ImportError:
+        from server.app.routes import auth, leave
 
 # AMP Email CORS Middleware
 @app.middleware("http")

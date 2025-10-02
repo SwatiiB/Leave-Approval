@@ -1,8 +1,29 @@
 import secrets
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from app.models.db import tokens_collection
 from bson import ObjectId
 from typing import Optional
+
+# Add paths for imports
+current_file = Path(__file__).resolve()
+utils_dir = current_file.parent
+app_dir = utils_dir.parent
+server_dir = app_dir.parent
+root_dir = server_dir.parent
+
+for path in [str(root_dir), str(server_dir), str(app_dir)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+# Import database with fallbacks
+try:
+    from models.db import tokens_collection
+except ImportError:
+    try:
+        from app.models.db import tokens_collection
+    except ImportError:
+        from server.app.models.db import tokens_collection
 
 def generate_approval_token(leave_id: str, manager_id: str, action: str = "approve", hours_valid: int = 24) -> str:
     """

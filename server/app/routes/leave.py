@@ -1,30 +1,43 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, status, Form
-import sys
 import os
+import sys
+from pathlib import Path
 
-# Add the server directory to Python path for Vercel deployment
-current_dir = os.path.dirname(os.path.abspath(__file__))
-server_dir = os.path.dirname(os.path.dirname(current_dir))
-if server_dir not in sys.path:
-    sys.path.insert(0, server_dir)
+# Add paths for imports
+current_file = Path(__file__).resolve()
+routes_dir = current_file.parent
+app_dir = routes_dir.parent
+server_dir = app_dir.parent
+root_dir = server_dir.parent
 
-try:
-    from app.models.db import leaves_collection, users_collection, tokens_collection
-    from app.models.schemas import LeaveRequestCreate, LeaveRequest, LeaveActionRequest
-    from app.utils.auth import verify_token, verify_password
-    from app.utils.email import send_leave_action_email, notify_employee
-    from app.utils.tokens import verify_token as verify_approval_token, use_token, revoke_tokens_for_leave
-except ImportError:
-    # Fallback for Vercel deployment
-    from server.app.models.db import leaves_collection, users_collection, tokens_collection
-    from server.app.models.schemas import LeaveRequestCreate, LeaveRequest, LeaveActionRequest
-    from server.app.utils.auth import verify_token, verify_password
-    from server.app.utils.email import send_leave_action_email, notify_employee
-    from server.app.utils.tokens import verify_token as verify_approval_token, use_token, revoke_tokens_for_leave
+for path in [str(root_dir), str(server_dir), str(app_dir)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
+from fastapi import APIRouter, HTTPException, Depends, Request, status, Form
 from bson import ObjectId
 from datetime import datetime, timezone
 from typing import Optional, List
+
+# Import local modules with fallbacks
+try:
+    from models.db import leaves_collection, users_collection, tokens_collection
+    from models.schemas import LeaveRequestCreate, LeaveRequest, LeaveActionRequest
+    from utils.auth import verify_token, verify_password
+    from utils.email import send_leave_action_email, notify_employee
+    from utils.tokens import verify_token as verify_approval_token, use_token, revoke_tokens_for_leave
+except ImportError:
+    try:
+        from app.models.db import leaves_collection, users_collection, tokens_collection
+        from app.models.schemas import LeaveRequestCreate, LeaveRequest, LeaveActionRequest
+        from app.utils.auth import verify_token, verify_password
+        from app.utils.email import send_leave_action_email, notify_employee
+        from app.utils.tokens import verify_token as verify_approval_token, use_token, revoke_tokens_for_leave
+    except ImportError:
+        from server.app.models.db import leaves_collection, users_collection, tokens_collection
+        from server.app.models.schemas import LeaveRequestCreate, LeaveRequest, LeaveActionRequest
+        from server.app.utils.auth import verify_token, verify_password
+        from server.app.utils.email import send_leave_action_email, notify_employee
+        from server.app.utils.tokens import verify_token as verify_approval_token, use_token, revoke_tokens_for_leave
 
 router = APIRouter()
 

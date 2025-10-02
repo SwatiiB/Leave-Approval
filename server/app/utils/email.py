@@ -1,11 +1,34 @@
 import os
+import sys
+from pathlib import Path
 from email.message import EmailMessage
 import smtplib
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
-from app.utils.tokens import generate_approval_token
+
+# Add paths for imports
+current_file = Path(__file__).resolve()
+utils_dir = current_file.parent
+app_dir = utils_dir.parent
+server_dir = app_dir.parent
+root_dir = server_dir.parent
+
+for path in [str(root_dir), str(server_dir), str(app_dir)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+# Import tokens with fallbacks
+try:
+    from utils.tokens import generate_approval_token
+except ImportError:
+    try:
+        from app.utils.tokens import generate_approval_token
+    except ImportError:
+        from server.app.utils.tokens import generate_approval_token
 
 load_dotenv()
+# Also try loading from server directory
+load_dotenv(server_dir / ".env")
 
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))

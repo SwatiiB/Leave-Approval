@@ -5,7 +5,7 @@
       "src": "server/app/main.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "server/**"
+        "maxLambdaSize": "15mb"
       }
     },
     {

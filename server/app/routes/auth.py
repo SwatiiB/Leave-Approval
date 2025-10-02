@@ -1,29 +1,39 @@
+import os
+import sys
+from pathlib import Path
+
+# Add paths for imports
+current_file = Path(__file__).resolve()
+routes_dir = current_file.parent
+app_dir = routes_dir.parent
+server_dir = app_dir.parent
+root_dir = server_dir.parent
+
+for path in [str(root_dir), str(server_dir), str(app_dir)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-import sys
-import os
-
-# Add the server directory to Python path for Vercel deployment
-current_dir = os.path.dirname(os.path.abspath(__file__))
-server_dir = os.path.dirname(os.path.dirname(current_dir))
-if server_dir not in sys.path:
-    sys.path.insert(0, server_dir)
-
-try:
-    from app.models.db import users_collection, password_resets_collection
-    from app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
-    from app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
-except ImportError:
-    # Fallback for Vercel deployment
-    from server.app.models.db import users_collection, password_resets_collection
-    from server.app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
-    from server.app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
-
 from bson import ObjectId
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone, timedelta as td
 from pymongo.errors import DuplicateKeyError
-from datetime import datetime, timezone, timedelta as td
 import random
+
+# Import local modules with fallbacks
+try:
+    from models.db import users_collection, password_resets_collection
+    from models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+    from utils.auth import verify_password, get_password_hash, create_access_token, verify_token
+except ImportError:
+    try:
+        from app.models.db import users_collection, password_resets_collection
+        from app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+        from app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
+    except ImportError:
+        from server.app.models.db import users_collection, password_resets_collection
+        from server.app.models.schemas import Token, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+        from server.app.utils.auth import verify_password, get_password_hash, create_access_token, verify_token
 
 router = APIRouter()
 
